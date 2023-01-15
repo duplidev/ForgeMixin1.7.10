@@ -1,0 +1,87 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            name = "forge"
+            url = "https://maven.minecraftforge.net/"
+        }
+        maven {
+            name = 'sponge'
+            url = 'https://repo.spongepowered.org/maven/'
+        }
+    }
+    dependencies {
+        classpath 'com.anatawa12.forge:ForgeGradle:1.2-1.0.+'
+    }
+}
+
+apply plugin: 'forge'
+
+sourceCompatibility = targetCompatibility = 1.8
+
+version = "1.0"
+group= "com.example.examplemod"
+archivesBaseName = "examplemod"
+
+minecraft {
+    version = "1.7.10-10.13.4.1614-1.7.10"
+    runDir = "run"
+    mappings = "stable_12"
+}
+
+def refmap = "${tasks.compileJava.temporaryDir}/mixins.examplemod.refmap.json"
+def mixinSrg = "${tasks.reobf.temporaryDir}/mixins.srg"
+
+afterEvaluate {
+    tasks.compileJava.options.compilerArgs += ["-AreobfSrgFile=${tasks.reobf.srg}", "-AoutSrgFile=${mixinSrg}", "-AoutRefMapFile=${refmap}"]
+}
+
+reobf {
+    addExtraSrgFile mixinSrg
+}
+
+configurations {
+    embed
+    compile.extendsFrom(embed)
+}
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven {
+        name = 'sponge'
+        url = 'https://repo.spongepowered.org/maven/'
+    }
+}
+
+dependencies {
+    embed('org.spongepowered:mixin:0.7.11-SNAPSHOT')
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "mcversion", project.minecraft.version
+
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+        expand 'version':project.version, 'mcversion':project.minecraft.version
+    }
+
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
+    }
+}
+
+jar {
+    dependsOn configurations.embed
+    from(configurations.embed.collect { it.isDirectory() ? it : zipTree(it) })
+
+    manifest.attributes (
+            "MixinConfigs": "mixins.examplemod.json",
+            "TweakClass": "org.spongepowered.asm.launch.MixinTweaker",
+            'FMLCorePluginContainsFMLMod': true,
+            "ForceLoadAsMod": true
+    )
+
+    from refmap
+}
